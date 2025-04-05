@@ -2,6 +2,7 @@ import random
 import socket
 import os
 import sys
+import threading
 
 IP = '127.0.0.1'  # default IP address of the server
 PORT = 12000  # change to a desired port number
@@ -10,7 +11,6 @@ BUFFER_SIZE = 1024  # change to a desired buffer size
 
 def get_file_info(data: bytes) -> (str, int):
     return data[8:].decode(), int.from_bytes(data[:8],byteorder='big')
-
 
 def upload_file(conn_socket: socket, file_name: str, file_size: int):
     # create a new file to store the received data
@@ -21,25 +21,26 @@ def upload_file(conn_socket: socket, file_name: str, file_size: int):
         retrieved_size = 0
         try:
             while retrieved_size < file_size:
-                # TODO: section 1 step 6a
-                # TODO: section 1 stop 6b
-                # TODO: section 1 stop 6c
+                data = conn_socket.recv(BUFFER_SIZE)
+                retrieved_size += len(data)
+                file.write(data)
         except OSError as oe:
             print(oe)
             os.remove(file_name)
 
 def service_client_connection(conn_socket: socket):
     try:
-        # TODO: section 3 step 2
+        msg = conn_socket.recv(BUFFER_SIZE)
         # expecting an 8-byte byte string for file size followed by file name
-        # TODO: section 3 step 3
+        file_name, file_size = get_file_info(msg)
         print(f'Received: {file_name} with size = {file_size}')
-        # TODO: section 3 step 4
+        conn_socket.send(b'go ahead')
         upload_file(conn_socket, file_name, file_size)
     except Exception as e:
         print(e)
     finally:
         conn_socket.close()
+
 def start_server(ip, port):
     # create a TCP socket object
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -49,8 +50,8 @@ def start_server(ip, port):
     try:
         while True: # section 4 step 6
             (conn_socket, addr) = server_socket.accept() # section 4 step 3
-            # TODO: section 4 step 4
-            # TODO: section 4 step 5
+            thread = threading.Thread(target=service_client_connection, args=(conn_socket,))
+            thread.start()
     except KeyboardInterrupt as ki:
         pass
     finally:
